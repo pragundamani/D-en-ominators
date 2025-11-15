@@ -17,15 +17,38 @@ from tqdm import tqdm
 DATASETS_DIR = Path("datasets")
 DATASETS_DIR.mkdir(exist_ok=True)
 
-def run_command(cmd, check=True):
+def run_command(cmd, check=True, show_progress=False):
     """Run a shell command and return the result"""
     try:
-        result = subprocess.run(cmd, shell=True, check=check, capture_output=True, text=True)
-        return result.stdout.strip()
+        if show_progress:
+            # For git clone, show progress
+            process = subprocess.Popen(
+                cmd, shell=True, stdout=subprocess.PIPE, 
+                stderr=subprocess.STDOUT, text=True, bufsize=1
+            )
+            # Read output line by line to show progress
+            for line in process.stdout:
+                print(f"  {line.strip()}")
+            process.wait()
+            # Check return code even when check=False to know if it failed
+            if process.returncode != 0:
+                print(f"  ✗ Command failed with exit code {process.returncode}")
+                return False
+            return True
+        else:
+            result = subprocess.run(cmd, shell=True, check=check, capture_output=True, text=True)
+            if result.returncode != 0 and check:
+                print(f"  ✗ Command failed: {result.stderr}")
+                return False
+            return result.returncode == 0
     except subprocess.CalledProcessError as e:
         print(f"Error running command: {cmd}")
         print(f"Error: {e.stderr}")
-        return None
+        return False
+    except Exception as e:
+        print(f"Error running command: {cmd}")
+        print(f"Error: {e}")
+        return False
 
 def download_huggingface_dataset(dataset_name, output_dir):
     """Download a Hugging Face dataset"""
@@ -35,27 +58,46 @@ def download_huggingface_dataset(dataset_name, output_dir):
         output_path = DATASETS_DIR / output_dir
         output_path.mkdir(parents=True, exist_ok=True)
         
-        print(f"Loading dataset {dataset_name}...")
-        dataset = load_dataset(dataset_name)
+        # Show progress for loading dataset
+        with tqdm(desc="  Loading dataset", bar_format='{desc}: {elapsed}') as pbar:
+            print(f"  Loading dataset {dataset_name}...")
+            dataset = load_dataset(dataset_name)
+            pbar.update(1)
         
-        # Save dataset
+        # Save dataset with progress
         if isinstance(dataset, dict):
-            for split_name, split_data in dataset.items():
-                split_path = output_path / split_name
-                split_path.mkdir(exist_ok=True)
-                split_data.save_to_disk(str(split_path))
-                print(f"  ✓ Saved {split_name} split")
+            splits = list(dataset.keys())
+            with tqdm(total=len(splits), desc="  Saving splits", unit="split") as pbar:
+                for split_name, split_data in dataset.items():
+                    split_path = output_path / split_name
+                    split_path.mkdir(exist_ok=True)
+                    split_data.save_to_disk(str(split_path))
+                    pbar.set_postfix({"split": split_name})
+                    pbar.update(1)
+                    print(f"  ✓ Saved {split_name} split")
         else:
-            dataset.save_to_disk(str(output_path))
-            print(f"  ✓ Saved dataset")
+            with tqdm(desc="  Saving dataset", bar_format='{desc}: {elapsed}') as pbar:
+                dataset.save_to_disk(str(output_path))
+                pbar.update(1)
+                print(f"  ✓ Saved dataset")
         
+        # Verify files were actually saved
+        if not any(output_path.rglob("*")):  # Check if any files exist recursively
+            print(f"  ✗ Warning: Dataset saved but no files found in {output_path}")
+            return False
+        
+        print(f"  ✓ Verified files saved to {output_path}")
         return True
     except ImportError:
         print("  ⚠ Installing datasets library...")
-        run_command(f"{sys.executable} -m pip install datasets", check=False)
+        with tqdm(desc="  Installing", bar_format='{desc}: {elapsed}') as pbar:
+            run_command(f"{sys.executable} -m pip install datasets", check=False)
+            pbar.update(1)
         return download_huggingface_dataset(dataset_name, output_dir)
     except Exception as e:
         print(f"  ✗ Error: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 def download_github_repo(repo_url, output_dir, subpath=None):
@@ -79,24 +121,41 @@ def download_github_repo(repo_url, output_dir, subpath=None):
             # Clone repository
             if output_path.exists() and any(output_path.iterdir()):
                 print(f"  ⚠ Directory {output_path} already exists, skipping clone")
+                return True
             else:
                 print(f"  Cloning {repo_url_clean} (branch: {branch})...")
-                run_command(f"git clone --depth 1 --branch {branch} {repo_url_clean} {output_path}", check=False)
+                # Use git clone with progress output - check if it succeeds
+                with tqdm(desc="  Cloning repository", bar_format='{desc}: {elapsed}') as pbar:
+                    success = run_command(f"git clone --depth 1 --branch {branch} {repo_url_clean} {output_path}", 
+                              check=False, show_progress=True)
+                    pbar.update(1)
                 
-                # If subpath specified, move to that subdirectory
+                if not success:
+                    print(f"  ✗ Failed to clone repository")
+                    return False
+                
+                # Verify clone succeeded by checking if directory has content
+                if not output_path.exists() or not any(output_path.iterdir()):
+                    print(f"  ✗ Clone completed but directory is empty")
+                    return False
+                
+                # If subpath specified, verify it exists
                 if subpath:
                     subpath_full = output_path / subpath
                     if subpath_full.exists():
                         print(f"  ✓ Found subpath: {subpath}")
                     else:
                         print(f"  ⚠ Subpath {subpath} not found")
-            
-            return True
+                
+                print(f"  ✓ Successfully cloned to {output_path}")
+                return True
         else:
             print(f"  ✗ Invalid GitHub URL: {repo_url}")
             return False
     except Exception as e:
         print(f"  ✗ Error: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 def download_kaggle_dataset(dataset_name, output_dir):
@@ -111,15 +170,27 @@ def download_kaggle_dataset(dataset_name, output_dir):
             import kaggle
         except ImportError:
             print("  ⚠ Installing kaggle library...")
-            run_command(f"{sys.executable} -m pip install kaggle", check=False)
+            with tqdm(desc="  Installing", bar_format='{desc}: {elapsed}') as pbar:
+                run_command(f"{sys.executable} -m pip install kaggle", check=False)
+                pbar.update(1)
             import kaggle
         
         print(f"  Downloading {dataset_name}...")
-        kaggle.api.dataset_download_files(dataset_name, path=str(output_path), unzip=True)
+        with tqdm(desc="  Downloading from Kaggle", bar_format='{desc}: {elapsed}') as pbar:
+            kaggle.api.dataset_download_files(dataset_name, path=str(output_path), unzip=True)
+            pbar.update(1)
+        
+        # Verify files were downloaded
+        if not any(output_path.rglob("*")):
+            print(f"  ✗ Warning: Download completed but no files found in {output_path}")
+            return False
+        
         print(f"  ✓ Downloaded to {output_path}")
         return True
     except Exception as e:
         print(f"  ✗ Error: {e}")
+        import traceback
+        traceback.print_exc()
         print(f"  ⚠ Note: Kaggle requires API credentials. Set up ~/.kaggle/kaggle.json")
         return False
 
@@ -135,7 +206,9 @@ def download_roboflow_dataset(dataset_url, output_dir):
             from roboflow import Roboflow
         except ImportError:
             print("  ⚠ Installing roboflow library...")
-            run_command(f"{sys.executable} -m pip install roboflow", check=False)
+            with tqdm(desc="  Installing", bar_format='{desc}: {elapsed}') as pbar:
+                run_command(f"{sys.executable} -m pip install roboflow", check=False)
+                pbar.update(1)
             from roboflow import Roboflow
         
         # Extract workspace, project, and version from URL
@@ -172,14 +245,16 @@ def download_file(url, output_path):
         with open(output_file, 'wb') as f:
             if total_size > 0:
                 # Use tqdm for progress bar when we know the file size
-                with tqdm(total=total_size, unit='B', unit_scale=True, unit_divisor=1024, desc="  Downloading") as pbar:
+                with tqdm(total=total_size, unit='B', unit_scale=True, unit_divisor=1024, 
+                      desc="  Downloading", bar_format='{desc}: {percentage:3.0f}%|{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]') as pbar:
                     for chunk in response.iter_content(chunk_size=8192):
                         if chunk:
                             f.write(chunk)
                             pbar.update(len(chunk))
             else:
                 # If we don't know the size, use a simple progress indicator
-                with tqdm(unit='B', unit_scale=True, unit_divisor=1024, desc="  Downloading") as pbar:
+                with tqdm(unit='B', unit_scale=True, unit_divisor=1024, 
+                         desc="  Downloading", bar_format='{desc}: {n_fmt} [{elapsed}]') as pbar:
                     for chunk in response.iter_content(chunk_size=8192):
                         if chunk:
                             f.write(chunk)
@@ -260,12 +335,15 @@ def main():
     
     results = []
     
-    # Overall progress bar for datasets
-    with tqdm(total=len(datasets), desc="Overall Progress", unit="dataset", bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]') as overall_pbar:
-        for dataset in datasets:
-            overall_pbar.set_description(f"Processing: {dataset['name'][:40]}")
+    # Overall progress bar for datasets with better formatting
+    with tqdm(total=len(datasets), desc="Overall Progress", unit="dataset", 
+              bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}]',
+              position=0, leave=True) as overall_pbar:
+        for idx, dataset in enumerate(datasets, 1):
+            overall_pbar.set_description(f"Processing: {dataset['name'][:35]}")
+            overall_pbar.set_postfix({"current": f"{idx}/{len(datasets)}"})
             print(f"\n{'='*80}")
-            print(f"Processing: {dataset['name']}")
+            print(f"Processing: {dataset['name']} ({idx}/{len(datasets)})")
             print(f"{'='*80}")
             
             success = False
