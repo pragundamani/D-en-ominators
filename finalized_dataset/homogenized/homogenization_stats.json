@@ -1,0 +1,25 @@
+{
+  "target_size": [
+    224,
+    224
+  ],
+  "target_mode": "RGB",
+  "maintain_aspect_ratio": true,
+  "padding_color": [
+    255,
+    255,
+    255
+  ],
+  "statistics": {
+    "train": {
+      "total": 5464,
+      "success": 5464,
+      "failed": 0
+    },
+    "test": {
+      "total": 455,
+      "success": 455,
+      "failed": 0
+    }
+  }
+}

@@ -64,6 +64,27 @@ class SubsetWithTransform(torch.utils.data.Dataset):
         return image, label, metadata
 
 
+class FocalLoss(nn.Module):
+    """Focal Loss for addressing class imbalance."""
+    def __init__(self, alpha=None, gamma=2.0, reduction='mean'):
+        super(FocalLoss, self).__init__()
+        self.alpha = alpha
+        self.gamma = gamma
+        self.reduction = reduction
+    
+    def forward(self, inputs, targets):
+        ce_loss = nn.functional.cross_entropy(inputs, targets, weight=self.alpha, reduction='none')
+        pt = torch.exp(-ce_loss)
+        focal_loss = ((1 - pt) ** self.gamma) * ce_loss
+        
+        if self.reduction == 'mean':
+            return focal_loss.mean()
+        elif self.reduction == 'sum':
+            return focal_loss.sum()
+        else:
+            return focal_loss
+
+
 class Trainer:
     """Training manager for hieroglyph classifier."""
     
@@ -75,7 +96,10 @@ class Trainer:
         device: str = "cuda",
         learning_rate: float = 1e-4,
         weight_decay: float = 1e-4,
-        class_weights: Optional[torch.Tensor] = None
+        class_weights: Optional[torch.Tensor] = None,
+        use_focal_loss: bool = True,
+        focal_gamma: float = 2.0,
+        label_smoothing: float = 0.1
     ):
         self.model = model
         self.train_loader = train_loader
@@ -83,11 +107,17 @@ class Trainer:
         self.device = device
         self.class_weights = class_weights
         
-        # Loss function
-        if class_weights is not None:
-            self.criterion = nn.CrossEntropyLoss(weight=class_weights)
+        # Loss function - use Focal Loss for better handling of imbalanced data
+        if use_focal_loss:
+            self.criterion = FocalLoss(alpha=class_weights, gamma=focal_gamma)
+            print(f"Using Focal Loss (gamma={focal_gamma})")
         else:
-            self.criterion = nn.CrossEntropyLoss()
+            if class_weights is not None:
+                self.criterion = nn.CrossEntropyLoss(weight=class_weights, label_smoothing=label_smoothing)
+            else:
+                self.criterion = nn.CrossEntropyLoss(label_smoothing=label_smoothing)
+            if label_smoothing > 0:
+                print(f"Using CrossEntropyLoss with label smoothing ({label_smoothing})")
         
         # Optimizer
         self.optimizer = optim.AdamW(
@@ -256,8 +286,14 @@ def main():
                         help='Validation split ratio')
     parser.add_argument('--filter_priority', action='store_true',
                         help='Only use priority hieroglyphs')
-    parser.add_argument('--use_class_weights', action='store_true',
-                        help='Use class weights for imbalanced data')
+    parser.add_argument('--use_class_weights', action='store_true', default=True,
+                        help='Use class weights for imbalanced data (default: True)')
+    parser.add_argument('--use_focal_loss', action='store_true', default=True,
+                        help='Use Focal Loss instead of CrossEntropy (default: True)')
+    parser.add_argument('--focal_gamma', type=float, default=2.0,
+                        help='Gamma parameter for Focal Loss (default: 2.0)')
+    parser.add_argument('--label_smoothing', type=float, default=0.1,
+                        help='Label smoothing factor (default: 0.1)')
     parser.add_argument('--save_dir', type=str, default='checkpoints',
                         help='Directory to save checkpoints')
     parser.add_argument('--seed', type=int, default=42,
@@ -321,23 +357,64 @@ def main():
         get_transforms(args.image_size, is_training=False, augment=False)
     )
     
-    # Compute class weights if requested
-    class_weights = None
-    if args.use_class_weights:
-        labels_array = np.array(full_dataset.labels)
-        class_weights = compute_class_weight(
-            'balanced',
-            classes=np.unique(labels_array),
-            y=labels_array
-        )
-        class_weights = torch.FloatTensor(class_weights).to(device)
-        print(f"Computed class weights (min: {class_weights.min():.3f}, max: {class_weights.max():.3f})")
+    # Compute class weights - always use for imbalanced data
+    labels_array = np.array(full_dataset.labels)
+    train_labels = labels_array[train_indices]
+    
+    # Compute class weights with improved strategy
+    unique_labels, counts = np.unique(train_labels, return_counts=True)
+    
+    # Calculate inverse frequency weights with smoothing
+    total_samples = len(train_labels)
+    num_classes = len(unique_labels)
+    
+    # Add smoothing to prevent division by zero and extreme weights
+    smoothing_factor = 1.0
+    class_weights = total_samples / (num_classes * (counts + smoothing_factor))
+    
+    # Apply square root to make weights less aggressive (better for extreme imbalance)
+    class_weights = np.sqrt(class_weights)
+    
+    # Normalize weights: scale so mean is 1.0
+    class_weights = class_weights / class_weights.mean()
+    
+    # Cap extreme weights at 10x the median to prevent over-weighting rare classes
+    median_weight = np.median(class_weights)
+    max_weight = median_weight * 10.0
+    class_weights = np.clip(class_weights, None, max_weight)
+    
+    # Re-normalize after capping
+    class_weights = class_weights / class_weights.mean()
+    
+    # Create mapping from label to weight
+    label_to_weight = dict(zip(unique_labels, class_weights))
+    
+    # Print weight statistics
+    print(f"Class distribution: {len(unique_labels)} classes")
+    print(f"  Min samples per class: {counts.min()}, Max: {counts.max()}, Mean: {counts.mean():.1f}")
+    print(f"  Weight range: min={class_weights.min():.3f}, max={class_weights.max():.3f}, mean={class_weights.mean():.3f}")
+    
+    # Create full weight array for all classes
+    full_weights = np.ones(full_dataset.num_classes)
+    for label, weight in label_to_weight.items():
+        full_weights[label] = weight
+    
+    class_weights = torch.FloatTensor(full_weights).to(device)
+    
+    # Create weighted sampler for training
+    sample_weights = np.array([label_to_weight.get(label, 1.0) for label in train_labels])
+    sampler = WeightedRandomSampler(
+        weights=sample_weights,
+        num_samples=len(sample_weights),
+        replacement=True
+    )
+    print(f"Created weighted sampler for balanced training")
     
     # Create data loaders
     train_loader = DataLoader(
         train_dataset,
         batch_size=args.batch_size,
-        shuffle=True,
+        sampler=sampler,  # Use weighted sampler instead of shuffle
         num_workers=0,  # Set to 0 to avoid multiprocessing issues on some systems
         pin_memory=False
     )
@@ -368,7 +445,10 @@ def main():
         device=device,
         learning_rate=args.learning_rate,
         weight_decay=args.weight_decay,
-        class_weights=class_weights
+        class_weights=class_weights,
+        use_focal_loss=args.use_focal_loss,
+        focal_gamma=args.focal_gamma,
+        label_smoothing=args.label_smoothing if not args.use_focal_loss else 0.0
     )
     
     # Train

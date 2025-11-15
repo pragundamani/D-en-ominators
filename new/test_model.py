@@ -6,6 +6,7 @@ import argparse
 from pathlib import Path
 import json
 from collections import defaultdict
+import re
 
 import torch
 from PIL import Image
@@ -15,6 +16,29 @@ from tqdm import tqdm
 from hieroglyph_dataset import HieroglyphDataset, get_transforms
 from model import create_model
 from inference import load_model, predict_image
+
+
+def extract_gardiner_number(filename):
+    """Extract Gardiner number from filename."""
+    name = Path(filename).stem
+    
+    # Remove parentheses and numbers after them
+    if '(' in name:
+        name = name.split('(')[0].strip()
+    
+    # Remove counter suffixes like "_1", "_2"
+    if '_' in name:
+        parts = name.split('_')
+        # Check if last part is a number
+        if parts[-1].isdigit():
+            name = '_'.join(parts[:-1])
+    
+    # Extract Gardiner number (e.g., "M17", "I10", "N35")
+    match = re.match(r'^([A-Za-z]+[0-9]+[a-z]*)', name)
+    if match:
+        return match.group(1)
+    
+    return name  # Return the name as-is if no pattern matches
 
 
 def test_with_hand_drawn_samples(
@@ -55,14 +79,31 @@ def test_with_hand_drawn_samples(
     test_results = defaultdict(list)
     
     print(f"\nScanning test directory: {test_dir}")
-    for gardiner_dir in test_dir.iterdir():
-        if gardiner_dir.is_dir():
-            gardiner_num = gardiner_dir.name
-            image_files = list(gardiner_dir.glob("*.png"))
-            
-            if image_files:
-                print(f"  Found {len(image_files)} samples for {gardiner_num}")
-                test_results[gardiner_num] = image_files
+    
+    # Check if flat structure (files directly in test_dir) or nested (subdirectories)
+    image_files_flat = list(test_dir.glob("*.png"))
+    
+    if image_files_flat:
+        # Flat structure - extract Gardiner numbers from filenames
+        print("  Detected flat structure, extracting Gardiner numbers from filenames...")
+        for img_file in image_files_flat:
+            gardiner_num = extract_gardiner_number(img_file.name)
+            if gardiner_num:
+                test_results[gardiner_num].append(img_file)
+            else:
+                # Try using filename stem as Gardiner number
+                gardiner_num = img_file.stem.split('_')[0]  # Remove counter suffix
+                test_results[gardiner_num].append(img_file)
+    else:
+        # Nested structure - subdirectories by Gardiner number
+        for gardiner_dir in test_dir.iterdir():
+            if gardiner_dir.is_dir():
+                gardiner_num = gardiner_dir.name
+                image_files = list(gardiner_dir.glob("*.png"))
+                
+                if image_files:
+                    print(f"  Found {len(image_files)} samples for {gardiner_num}")
+                    test_results[gardiner_num] = image_files
     
     print(f"\nTotal test classes: {len(test_results)}")
     print(f"Total test images: {sum(len(imgs) for imgs in test_results.values())}")
@@ -121,7 +162,11 @@ def test_with_hand_drawn_samples(
     print("\n" + "=" * 60)
     print("Test Results")
     print("=" * 60)
-    print(f"Overall Accuracy: {correct_predictions}/{total_predictions} = {correct_predictions/total_predictions*100:.2f}%")
+    if total_predictions > 0:
+        print(f"Overall Accuracy: {correct_predictions}/{total_predictions} = {correct_predictions/total_predictions*100:.2f}%")
+    else:
+        print("No predictions made!")
+        return class_results
     print(f"\nPer-Class Results:")
     print("-" * 60)
     
