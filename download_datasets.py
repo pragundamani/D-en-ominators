@@ -11,6 +11,7 @@ import requests
 from pathlib import Path
 from urllib.parse import urlparse
 import json
+from tqdm import tqdm
 
 # Create datasets directory
 DATASETS_DIR = Path("datasets")
@@ -167,18 +168,24 @@ def download_file(url, output_path):
         response.raise_for_status()
         
         total_size = int(response.headers.get('content-length', 0))
-        downloaded = 0
         
         with open(output_file, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                if chunk:
-                    f.write(chunk)
-                    downloaded += len(chunk)
-                    if total_size > 0:
-                        percent = (downloaded / total_size) * 100
-                        print(f"\r  Progress: {percent:.1f}%", end='', flush=True)
+            if total_size > 0:
+                # Use tqdm for progress bar when we know the file size
+                with tqdm(total=total_size, unit='B', unit_scale=True, unit_divisor=1024, desc="  Downloading") as pbar:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        if chunk:
+                            f.write(chunk)
+                            pbar.update(len(chunk))
+            else:
+                # If we don't know the size, use a simple progress indicator
+                with tqdm(unit='B', unit_scale=True, unit_divisor=1024, desc="  Downloading") as pbar:
+                    for chunk in response.iter_content(chunk_size=8192):
+                        if chunk:
+                            f.write(chunk)
+                            pbar.update(len(chunk))
         
-        print(f"\n  ✓ Downloaded to {output_file}")
+        print(f"  ✓ Downloaded to {output_file}")
         return True
     except Exception as e:
         print(f"\n  ✗ Error: {e}")
@@ -253,27 +260,32 @@ def main():
     
     results = []
     
-    for dataset in datasets:
-        print(f"\n{'='*80}")
-        print(f"Processing: {dataset['name']}")
-        print(f"{'='*80}")
-        
-        success = False
-        if dataset['type'] == 'huggingface':
-            success = download_huggingface_dataset(dataset['name'], dataset['output'])
-        elif dataset['type'] == 'github':
-            success = download_github_repo(dataset['url'], dataset['output'], dataset.get('subpath'))
-        elif dataset['type'] == 'kaggle':
-            success = download_kaggle_dataset(dataset['dataset_id'], dataset['output'])
-        elif dataset['type'] == 'roboflow':
-            success = download_roboflow_dataset(dataset['url'], dataset['output'])
-        elif dataset['type'] == 'direct':
-            success = download_file(dataset['url'], dataset['output'])
-        
-        results.append({
-            "name": dataset['name'],
-            "success": success
-        })
+    # Overall progress bar for datasets
+    with tqdm(total=len(datasets), desc="Overall Progress", unit="dataset", bar_format='{l_bar}{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}]') as overall_pbar:
+        for dataset in datasets:
+            overall_pbar.set_description(f"Processing: {dataset['name'][:40]}")
+            print(f"\n{'='*80}")
+            print(f"Processing: {dataset['name']}")
+            print(f"{'='*80}")
+            
+            success = False
+            if dataset['type'] == 'huggingface':
+                success = download_huggingface_dataset(dataset['name'], dataset['output'])
+            elif dataset['type'] == 'github':
+                success = download_github_repo(dataset['url'], dataset['output'], dataset.get('subpath'))
+            elif dataset['type'] == 'kaggle':
+                success = download_kaggle_dataset(dataset['dataset_id'], dataset['output'])
+            elif dataset['type'] == 'roboflow':
+                success = download_roboflow_dataset(dataset['url'], dataset['output'])
+            elif dataset['type'] == 'direct':
+                success = download_file(dataset['url'], dataset['output'])
+            
+            results.append({
+                "name": dataset['name'],
+                "success": success
+            })
+            
+            overall_pbar.update(1)
     
     # Summary
     print("\n" + "=" * 80)
