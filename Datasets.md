@@ -1,0 +1,29 @@
+
+| Name (Publisher-Source)                                                       | Info Link                                                                                          | Download/Access Link                                                                               |
+| ----------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| HamdiJr/Egyptian_hieroglyphs (Hugging Face)                                   | https://huggingface.co/datasets/HamdiJr/Egyptian_hieroglyphs                                       | https://huggingface.co/datasets/HamdiJr/Egyptian_hieroglyphs                                       |
+| GlyphDataset (Andrea Barucci - GitHub)                                        | https://github.com/AndreaBarucci/GlyphNet                                                          | https://github.com/AndreaBarucci/GlyphNet/tree/main/Data/GlyphDataset                              |
+| Hieroglyphs_Dataset (Kaggle - Prasert Kanawattanachai)                        | https://www.kaggle.com/datasets/prasertk/hieroglyphs-dataset                                       | https://www.kaggle.com/datasets/prasertk/hieroglyphs-dataset/download                              |
+| Ancient-Language-Decipherer (James Pigott - GitHub)                           | https://github.com/JamesPigott/ancient-language-decipherer                                         | https://github.com/JamesPigott/ancient-language-decipherer/tree/main/datasets                      |
+| Morris Franken & JSesh Unas Dataset (ISLA-UvA)                                | https://jvgemert.github.io/pub/franken2020automatic.pdf                                            | https://github.com/rosmira/jsesh                                                                   |
+| Egyptian Hieroglyphs Classification (Morris Franken - GitHub)                 | https://github.com/morrisfranken/HieroglyphClassification                                          | https://github.com/morrisfranken/HieroglyphClassification                                          |
+| Roboflow Egyptian Hieroglyphs Object Detection (Roboflow Universe)            | https://universe.roboflow.com/roboflow-universe-projects/egyptian-hieroglyphs-roboflow             | https://universe.roboflow.com/roboflow-universe-projects/egyptian-hieroglyphs-roboflow/dataset/1   |
+| Egyptian Hieroglyphs (Roboflow Export - Kaggle)                               | https://www.kaggle.com/datasets/nabilhaggag/egyptian-hieroglyphs                                   | https://www.kaggle.com/datasets/nabilhaggag/egyptian-hieroglyphs/download                          |
+| Fayrose Middle Egyptian Dataset (Ancient-Language-Decipherer refs)            | https://github.com/JamesPigott/ancient-language-decipherer/blob/main/public_datasets.md            | https://github.com/JamesPigott/ancient-language-decipherer/blob/main/public_datasets.md            |
+| Gimbert Hieroglyphs Dataset (Ancient-Language-Decipherer refs)                | https://github.com/JamesPigott/ancient-language-decipherer/blob/main/public_datasets.md            | https://github.com/JamesPigott/ancient-language-decipherer/blob/main/public_datasets.md            |
+| Google Arts Fabricius Workbench Dataset (Google)                              | https://experiments.withgoogle.com/fabricius                                                       | https://experiments.withgoogle.com/fabricius                                                       |
+| Neural Style Transfer Synthetic Dataset (arXiv - Lewis Matheson Creed)        | https://arxiv.org/abs/2504.03240                                                                   | https://arxiv.org/pdf/2504.03240.pdf                                                               |
+| ScienceDirect 310-class Hieroglyphs Dataset (Eg. Pattern Recognition Letters) | https://www.sciencedirect.com/science/article/pii/S0031320324004234                                | https://www.sciencedirect.com/science/article/pii/S0031320324004234                                |
+| GlyphNet Segmentation Dataset (Data Science UniFi project)                    | https://datascience.unifi.it/egyptian-hieroglyphs-segmentation-with-convolutional-neural-networks/ | https://datascience.unifi.it/egyptian-hieroglyphs-segmentation-with-convolutional-neural-networks/ |
+| Hand-Drawn Hieroglyph Dataset (IEEE Xplore)                                   | https://ieeexplore.ieee.org/document/10133700                                                      | https://ieeexplore.ieee.org/document/10133700                                                      |
+| Unicode Egyptian Hieroglyph Database (Unikemet, Unicode Consortium)           | https://www.unicode.org/reports/tr57/                                                              | https://www.unicode.org/reports/tr57/                                                              |
+[1](https://github.com/Endless077/Egyptian_Hieroglyphics_Models_Analysis)
+[2](https://www.reddit.com/r/gamedev/comments/1ipxze5/shortened_links_vs_full_urls_which_do_you_trust/)
+[3](https://arxiv.org/abs/2504.02163)
+[4](https://meta.stackoverflow.com/questions/313621/blacklist-the-use-of-common-link-shorteners-in-posts)
+[5](https://datascience.unifi.it/index.php/2023/04/17/egyptian-hieroglyphs/)
+[6](https://www.reddit.com/r/MicrosoftTeams/comments/1jin54g/anyway_to_disable_autoshortening_links/)
+[7](https://huggingface.co/datasets/HamdiJr/Egyptian_hieroglyphs)
+[8](https://support.buffer.com/article/620-shortening-and-unshortening-links)
+[9](https://ieeexplore.ieee.org/document/10486368/)
+[10](https://betterlinks.io/common-link-shortening-myths/)
