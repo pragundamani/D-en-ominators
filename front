@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hieroglyph Drawing App</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2em;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 0.9em;
+        }
+
+        .tools {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .tool-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .tool-group label {
+            font-weight: 600;
+            color: #333;
+            font-size: 0.9em;
+        }
+
+        .brush-size {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            flex: 1;
+            min-width: 200px;
+        }
+
+        input[type="range"] {
+            flex: 1;
+            height: 6px;
+            background: #e0e0e0;
+            border-radius: 3px;
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            background: #667eea;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            background: #667eea;
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+        }
+
+        .color-picker {
+            width: 40px;
+            height: 40px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        .canvas-container {
+            position: relative;
+            border: 3px solid #667eea;
+            border-radius: 10px;
+            background: white;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        canvas {
+            display: block;
+            cursor: crosshair;
+            border-radius: 8px;
+            background: white;
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            flex: 1;
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 120px;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+
+        .btn-secondary {
+            background: #f0f0f0;
+            color: #333;
+        }
+
+        .btn-secondary:hover {
+            background: #e0e0e0;
+            transform: translateY(-2px);
+        }
+
+        .btn-danger {
+            background: #ef4444;
+            color: white;
+        }
+
+        .btn-danger:hover {
+            background: #dc2626;
+            transform: translateY(-2px);
+        }
+
+        .btn-success {
+            background: #10b981;
+            color: white;
+        }
+
+        .btn-success:hover {
+            background: #059669;
+            transform: translateY(-2px);
+        }
+
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            font-size: 0.9em;
+            color: #555;
+        }
+
+        .status {
+            text-align: center;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-top: 15px;
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px;
+            }
+
+            h1 {
+                font-size: 1.5em;
+            }
+
+            canvas {
+                width: 100% !important;
+                height: auto !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏺 Hieroglyph Drawing App</h1>
+        <p class="subtitle">Draw Egyptian hieroglyphs with your mouse or finger</p>
+
+        <div class="info-box">
+            <strong>✏️ Instructions:</strong> Click and drag to draw on the canvas. Use the tools below to adjust your brush size and color. You can save your drawing or clear to start over!
+        </div>
+
+        <div class="tools">
+            <div class="brush-size">
+                <label for="brushSize">Brush Size:</label>
+                <input type="range" id="brushSize" min="1" max="30" value="5" />
+                <span id="brushValue">5px</span>
+            </div>
+            
+            <div class="tool-group">
+                <label for="colorPicker">Color:</label>
+                <input type="color" id="colorPicker" class="color-picker" value="#000000">
+            </div>
+        </div>
+
+        <div class="canvas-container">
+            <canvas id="drawingCanvas" width="520" height="520"></canvas>
+        </div>
+
+        <div class="controls">
+            <button class="btn-secondary" id="clearBtn">🗑️ Clear</button>
+            <button class="btn-primary" id="eraserBtn">🧹 Eraser</button>
+            <button class="btn-success" id="saveBtn">💾 Save Image</button>
+        </div>
+
+        <div id="status" class="status">Ready to draw! 🎨</div>
+    </div>
+
+    <script>
+        // Canvas setup
+        const canvas = document.getElementById('drawingCanvas');
+        const ctx = canvas.getContext('2d');
+        const statusDiv = document.getElementById('status');
+        const brushSizeInput = document.getElementById('brushSize');
+        const brushValueSpan = document.getElementById('brushValue');
+        const colorPicker = document.getElementById('colorPicker');
+        const clearBtn = document.getElementById('clearBtn');
+        const eraserBtn = document.getElementById('eraserBtn');
+        const saveBtn = document.getElementById('saveBtn');
+
+        let isDrawing = false;
+        let brushSize = 5;
+        let brushColor = '#000000';
+        let isEraser = false;
+
+        // Initialize canvas with white background
+        function initCanvas() {
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.strokeStyle = brushColor;
+            ctx.lineWidth = brushSize;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+        }
+
+        initCanvas();
+
+        // Brush size control
+        brushSizeInput.addEventListener('input', (e) => {
+            brushSize = parseInt(e.target.value);
+            brushValueSpan.textContent = `${brushSize}px`;
+            ctx.lineWidth = brushSize;
+        });
+
+        // Color picker
+        colorPicker.addEventListener('change', (e) => {
+            brushColor = e.target.value;
+            if (!isEraser) {
+                ctx.strokeStyle = brushColor;
+            }
+            isEraser = false;
+            eraserBtn.textContent = '🧹 Eraser';
+            eraserBtn.classList.remove('btn-danger');
+            eraserBtn.classList.add('btn-primary');
+        });
+
+        // Eraser toggle
+        eraserBtn.addEventListener('click', () => {
+            isEraser = !isEraser;
+            if (isEraser) {
+                ctx.strokeStyle = 'white';
+                eraserBtn.textContent = '✏️ Pen';
+                eraserBtn.classList.remove('btn-primary');
+                eraserBtn.classList.add('btn-danger');
+                statusDiv.textContent = 'Eraser mode active 🧹';
+            } else {
+                ctx.strokeStyle = brushColor;
+                eraserBtn.textContent = '🧹 Eraser';
+                eraserBtn.classList.remove('btn-danger');
+                eraserBtn.classList.add('btn-primary');
+                statusDiv.textContent = 'Pen mode active ✏️';
+            }
+        });
+
+        // Drawing functions
+        function getMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: e.clientX - rect.left,
+                y: e.clientY - rect.top
+            };
+        }
+
+        function getTouchPos(e) {
+            const rect = canvas.getBoundingClientRect();
+            const touch = e.touches[0];
+            return {
+                x: touch.clientX - rect.left,
+                y: touch.clientY - rect.top
+            };
+        }
+
+        function startDrawing(e) {
+            isDrawing = true;
+            const pos = e.type.includes('touch') ? getTouchPos(e) : getMousePos(e);
+            ctx.beginPath();
+            ctx.moveTo(pos.x, pos.y);
+        }
+
+        function draw(e) {
+            if (!isDrawing) return;
+            e.preventDefault();
+            
+            const pos = e.type.includes('touch') ? getTouchPos(e) : getMousePos(e);
+            ctx.lineTo(pos.x, pos.y);
+            ctx.stroke();
+        }
+
+        function stopDrawing() {
+            isDrawing = false;
+            ctx.beginPath();
+        }
+
+        // Mouse events
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mouseout', stopDrawing);
+
+        // Touch events
+        canvas.addEventListener('touchstart', startDrawing);
+        canvas.addEventListener('touchmove', draw);
+        canvas.addEventListener('touchend', stopDrawing);
+        canvas.addEventListener('touchcancel', stopDrawing);
+
+        // Clear canvas
+        clearBtn.addEventListener('click', () => {
+            initCanvas();
+            statusDiv.textContent = 'Canvas cleared! Ready to draw 🎨';
+            setTimeout(() => {
+                statusDiv.textContent = 'Ready to draw! 🎨';
+            }, 2000);
+        });
+
+        // Save image
+        saveBtn.addEventListener('click', () => {
+            // Create a temporary link element
+            const link = document.createElement('a');
+            link.download = `hieroglyph-${Date.now()}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+            
+            statusDiv.textContent = '✅ Image saved successfully!';
+            setTimeout(() => {
+                statusDiv.textContent = 'Ready to draw! 🎨';
+            }, 2000);
+        });
+
+        // Prevent scrolling when touching the canvas
+        document.body.addEventListener('touchmove', (e) => {
+            if (e.target === canvas) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+    </script>
+</body>
+</html>
