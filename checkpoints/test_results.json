@@ -1,0 +1,37 @@
+{
+  "overall_accuracy": 0.01171875,
+  "total_correct": 3,
+  "total_predictions": 256,
+  "class_results": {
+    "X1": {
+      "correct": 2,
+      "total": 65,
+      "accuracy": 0.03076923076923077
+    },
+    "V28": {
+      "correct": 0,
+      "total": 40,
+      "accuracy": 0.0
+    },
+    "O1": {
+      "correct": 0,
+      "total": 40,
+      "accuracy": 0.0
+    },
+    "I10": {
+      "correct": 1,
+      "total": 16,
+      "accuracy": 0.0625
+    },
+    "M17": {
+      "correct": 0,
+      "total": 54,
+      "accuracy": 0.0
+    },
+    "N35": {
+      "correct": 0,
+      "total": 41,
+      "accuracy": 0.0
+    }
+  }
+}
